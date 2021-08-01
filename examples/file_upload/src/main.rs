@@ -1,4 +1,4 @@
-use yew::{html, ChangeData, Component, ComponentLink, Html, ShouldRender};
+use yew::{html, ChangeEvent, Component, ComponentLink, Html, ShouldRender};
 
 use gloo::file::callbacks::FileReader;
 use gloo::file::File;
@@ -87,9 +87,9 @@ impl Component for Model {
             <div>
                 <div>
                     <p>{ "Choose a file to upload to see the uploaded bytes" }</p>
-                    <input type="file" multiple=true onchange={self.link.callback(move |value| {
+                    <input type="file" multiple=true onchange={self.link.callback(move |e: ChangeEvent| {
                             let mut result = Vec::new();
-                            if let ChangeData::Files(files) = value {
+                            if let Some(files) = e.get_file_list() {
                                 let files = js_sys::try_iter(&files)
                                     .unwrap()
                                     .unwrap()

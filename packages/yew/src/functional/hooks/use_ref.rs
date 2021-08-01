@@ -9,7 +9,7 @@ use std::{cell::RefCell, rc::Rc};
 ///
 /// # Example
 /// ```rust
-/// # use yew::prelude::*;
+/// # use yew::{ChangeEvent, prelude::*};
 /// # use std::rc::Rc;
 /// # use std::cell::RefCell;
 /// # use std::ops::{Deref, DerefMut};
@@ -32,8 +32,8 @@ use std::{cell::RefCell, rc::Rc};
 ///
 ///     let onchange = {
 ///         let message = message.clone();
-///           Callback::from(move |e| {
-///             if let ChangeData::Value(value) = e {
+///           Callback::from(move |e: ChangeEvent| {
+///             if let Some(value) = e.get_value() {
 ///                 message.set(value)
 ///             }
 ///         })

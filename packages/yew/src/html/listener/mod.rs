@@ -20,27 +20,6 @@ pub struct InputData {
     pub event: InputEvent,
 }
 
-// There is no '.../Web/API/ChangeEvent/data' (for onchange) similar to
-// https://developer.mozilla.org/en-US/docs/Web/API/InputEvent/data (for oninput).
-// ChangeData actually contains the value of the InputElement/TextAreaElement
-// after `change` event occured or contains the SelectElement (see more at the
-// variant ChangeData::Select)
-
-/// A type representing change of value(s) of an element after committed by user
-/// ([onchange event](https://developer.mozilla.org/en-US/docs/Web/Events/change)).
-#[derive(Debug)]
-pub enum ChangeData {
-    /// Value of the element in cases of `<input>`, `<textarea>`
-    Value(String),
-    /// SelectElement in case of `<select>` element. You can use one of methods of SelectElement
-    /// to collect your required data such as `value` and `selected_index`.
-    /// You can also iterate throught `selected_options` yourself, this does require adding the
-    /// [web-sys](https://crates.io/crates/web-sys) crate with the `HtmlCollection` feature.
-    Select(SelectElement),
-    /// Files
-    Files(FileList),
-}
-
 fn oninput_handler(this: &Element, event: InputEvent) -> InputData {
     // Normally only InputElement or TextAreaElement can have an oninput event listener. In
     // practice though any element with `contenteditable=true` may generate such events,
@@ -56,31 +35,65 @@ fn oninput_handler(this: &Element, event: InputEvent) -> InputData {
     InputData { value, event }
 }
 
-fn onchange_handler(this: &Element) -> ChangeData {
-    match this.node_name().as_ref() {
-        "INPUT" => {
-            let input = this.dyn_ref::<InputElement>().unwrap();
-            let is_file = input
-                .get_attribute("type")
-                .map(|value| value.eq_ignore_ascii_case("file"))
-                .unwrap_or(false);
-            if is_file {
-                let files: FileList = input.files().unwrap();
-                ChangeData::Files(files)
-            } else {
-                ChangeData::Value(input.value())
-            }
+/// A wrapper type around a [`Event`](web_sys::Event) to provide helper functions for common actions
+/// on a `change` event.
+#[derive(Debug)]
+pub struct ChangeEvent(web_sys::Event);
+
+impl ChangeEvent {
+    #[inline]
+    fn get_typed_target<T: JsCast>(&self) -> Option<T> {
+        self.target()?.dyn_into::<T>().ok()
+    }
+
+    /// Gets the [`FileList`] from the element this `change` event was dispatched from.
+    ///
+    /// The target element must be an input element with the `file` type to get the [`FileList`],
+    /// otherwise this function will return [`None`].
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use yew::{ChangeEvent, web_sys::FileList};
+    /// let onchange = |e: ChangeEvent| {
+    ///     let file_list: FileList = e.get_file_list()
+    ///         .expect("onchange event to be dispatched from file input");
+    ///     // continue using the file_list
+    /// };
+    /// ```
+    pub fn get_file_list(&self) -> Option<FileList> {
+        let input = self.get_typed_target::<InputElement>()?;
+        if input.type_().eq_ignore_ascii_case("file") {
+            input.files()
+        } else {
+            None
         }
-        "TEXTAREA" => {
-            let tae = this.dyn_ref::<TextAreaElement>().unwrap();
-            ChangeData::Value(tae.value())
+    }
+
+    /// Gets the [`API value`](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#a-form-control's-value)
+    /// from the element this `change` event was dispatched from.
+    ///
+    /// The `value` can be returned, when the target element is one of the following:
+    /// - input
+    /// - textarea
+    /// - select - based on the selectedness of its option elements
+    ///
+    pub fn get_value(&self) -> Option<String> {
+        let target = self.get_typed_target::<Element>()?;
+        match target.node_name().as_ref() {
+            "INPUT" => Some(target.unchecked_into::<InputElement>().value()),
+            "TEXTAREA" => Some(target.unchecked_into::<TextAreaElement>().value()),
+            "SELECT" => Some(target.unchecked_into::<SelectElement>().value()),
+            _ => None,
         }
-        "SELECT" => {
-            let se = this.dyn_ref::<SelectElement>().unwrap().clone();
-            ChangeData::Select(se)
-        }
-        _ => {
-            panic!("only an InputElement, TextAreaElement or SelectElement can have an onchange event listener");
-        }
+    }
+}
+
+// Allow users to get to the raw web_sys::Event
+impl std::ops::Deref for ChangeEvent {
+    type Target = web_sys::Event;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }

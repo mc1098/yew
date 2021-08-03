@@ -49,7 +49,7 @@ pub fn use_state<T: 'static, F: FnOnce() -> T + 'static>(initial_state_fn: F) ->
                 })
             });
 
-            let current = hook.current.clone();
+            let current = Rc::clone(&hook.borrow_mut().current);
             UseStateHandle {
                 value: current,
                 setter,

@@ -42,7 +42,8 @@ pub fn use_context<T: Clone + PartialEq + 'static>() -> Option<T> {
             initialized: false,
             context: None,
         },
-        |state: &mut UseContextState<T>, updater| {
+        |state, updater| {
+            let mut state = state.borrow_mut();
             if !state.initialized {
                 state.initialized = true;
                 let callback = move |ctx: T| {

@@ -139,7 +139,7 @@ where
             });
 
             UseReducerHandle {
-                value: Rc::clone(&s.current_state),
+                value: Rc::clone(&s.borrow().current_state),
                 setter,
             }
         },

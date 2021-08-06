@@ -2,10 +2,10 @@
 mod macros;
 mod events;
 
-use wasm_bindgen::JsCast;
+use wasm_bindgen::{JsCast, JsValue};
 use web_sys::{
-    Element, FileList, HtmlInputElement as InputElement, HtmlSelectElement as SelectElement,
-    HtmlTextAreaElement as TextAreaElement, InputEvent,
+    Element, FileList, HtmlInputElement as InputElement, HtmlTextAreaElement as TextAreaElement,
+    InputEvent,
 };
 
 pub use events::*;
@@ -41,51 +41,37 @@ fn oninput_handler(this: &Element, event: InputEvent) -> InputData {
 pub struct ChangeEvent(web_sys::Event);
 
 impl ChangeEvent {
-    #[inline]
-    fn get_typed_target<T: JsCast>(&self) -> Option<T> {
-        self.target()?.dyn_into::<T>().ok()
-    }
-
     /// Gets the [`FileList`] from the element this `change` event was dispatched from.
     ///
-    /// The target element must be an input element with the `file` type to get the [`FileList`],
+    /// The target element must have a `files` property which is an instanceof [`FileList`],
     /// otherwise this function will return [`None`].
     ///
     /// # Example
     ///
     /// ```rust
     /// use yew::{ChangeEvent, web_sys::FileList};
-    /// let onchange = |e: ChangeEvent| {
+    /// let on_input_change = |e: ChangeEvent| {
     ///     let file_list: FileList = e.get_file_list()
     ///         .expect("onchange event to be dispatched from file input");
     ///     // continue using the file_list
     /// };
     /// ```
     pub fn get_file_list(&self) -> Option<FileList> {
-        let input = self.get_typed_target::<InputElement>()?;
-        if input.type_().eq_ignore_ascii_case("file") {
-            input.files()
-        } else {
-            None
-        }
+        let target = self.target()?;
+        let files = js_sys::Reflect::get(&target, &JsValue::from("files"))
+            .expect("EventTarget should be an object");
+        files
+            .is_instance_of::<FileList>()
+            .then(|| FileList::from(files))
     }
 
-    /// Gets the [`API value`](https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#a-form-control's-value)
-    /// from the element this `change` event was dispatched from.
-    ///
-    /// The `value` can be returned, when the target element is one of the following:
-    /// - input
-    /// - textarea
-    /// - select - based on the selectedness of its option elements
-    ///
+    /// Gets the DOMString of the `value` property from the element this `change` event was
+    /// dispatched from.
     pub fn get_value(&self) -> Option<String> {
-        let target = self.get_typed_target::<Element>()?;
-        match target.node_name().as_ref() {
-            "INPUT" => Some(target.unchecked_into::<InputElement>().value()),
-            "TEXTAREA" => Some(target.unchecked_into::<TextAreaElement>().value()),
-            "SELECT" => Some(target.unchecked_into::<SelectElement>().value()),
-            _ => None,
-        }
+        let target = self.target()?;
+        js_sys::Reflect::get(&target, &JsValue::from_str("value"))
+            .expect("EventTarget should be an object")
+            .as_string()
     }
 }
 

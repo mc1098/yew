@@ -13,17 +13,30 @@ use syn::{
     Block, Expr, ExprBlock, ExprPath, ExprRange, Stmt, Token,
 };
 
+mod kw {
+    syn::custom_keyword!(on);
+}
+
+pub fn parse_listener_prefix(input: ParseStream) -> syn::Result<()> {
+    input.parse::<kw::on>()?;
+    input.parse::<Token![:]>()?;
+    Ok(())
+}
+
 pub struct Prop {
+    pub is_listener: bool,
     pub label: HtmlDashedName,
     /// Punctuation between `label` and `value`.
     pub value: Expr,
 }
 impl Parse for Prop {
     fn parse(input: ParseStream) -> syn::Result<Self> {
+        // check for 'on' + ':' for listeners
+        let is_listener = parse_listener_prefix(input).is_ok();
         if input.peek(Brace) {
-            Self::parse_shorthand_prop_assignment(input)
+            Self::parse_shorthand_prop_assignment(input, is_listener)
         } else {
-            Self::parse_prop_assignment(input)
+            Self::parse_prop_assignment(input, is_listener)
         }
     }
 }
@@ -33,7 +46,7 @@ impl Prop {
     /// Parse a prop using the shorthand syntax `{value}`, short for `value={value}`
     /// This only allows for labels with no hyphens, as it would otherwise create
     /// an ambiguity in the syntax
-    fn parse_shorthand_prop_assignment(input: ParseStream) -> syn::Result<Self> {
+    fn parse_shorthand_prop_assignment(input: ParseStream, is_listener: bool) -> syn::Result<Self> {
         let value;
         let _brace = braced!(value in input);
         let expr = value.parse::<Expr>()?;
@@ -58,17 +71,23 @@ impl Prop {
             ));
         }?;
 
-        Ok(Self { label, value: expr })
+        Ok(Self {
+            label,
+            value: expr,
+            is_listener,
+        })
     }
 
     /// Parse a prop of the form `label={value}`
-    fn parse_prop_assignment(input: ParseStream) -> syn::Result<Self> {
+    fn parse_prop_assignment(input: ParseStream, is_listener: bool) -> syn::Result<Self> {
         let label = input.parse::<HtmlDashedName>()?;
         let equals = input.parse::<Token![=]>().map_err(|_| {
-            syn::Error::new_spanned(
-                &label,
-                format!("`{}` doesn't have a value. (hint: set the value to `true` or `false` for boolean attributes)", label),
-            )
+            let mut message = format!("`{}` doesn't have a value.", label);
+            if !is_listener {
+                message
+                    .push_str(" (hint: set the value to `true` or `false` for boolean attributes)");
+            }
+            syn::Error::new_spanned(&label, message)
         })?;
         if input.is_empty() {
             return Err(syn::Error::new_spanned(
@@ -78,7 +97,11 @@ impl Prop {
         }
 
         let value = parse_prop_value(input)?;
-        Ok(Self { label, value })
+        Ok(Self {
+            label,
+            value,
+            is_listener,
+        })
     }
 }
 

@@ -117,10 +117,10 @@ impl Component for Comp {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         // highlight-next-line
-        let onclick = ctx.link().callback(|_| Msg::Clicked);
+        let click = ctx.link().callback(|_| Msg::Clicked);
         html! {
             // highlight-next-line
-            <button {onclick}>{ "Click" }</button>
+            <button on:{click}>{ "Click" }</button>
         }
     }
 }
@@ -150,7 +150,7 @@ impl Component for Comp {
 
     fn view(&self, ctx: &Context<Self>) -> Html {
         // highlight-start
-        let onkeypress = ctx.link().batch_callback(|event: KeyboardEvent| {
+        let keypress = ctx.link().batch_callback(|event: KeyboardEvent| {
             if event.key() == "Enter" {
                 Some(Msg::Submit)
             } else {
@@ -159,7 +159,7 @@ impl Component for Comp {
         });
         
         html! {
-            <input type="text" {onkeypress} />
+            <input type="text" on:{keypress} />
         }
         // highlight-end
     }

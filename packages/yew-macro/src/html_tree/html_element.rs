@@ -1,5 +1,5 @@
 use super::{HtmlChildrenTree, HtmlDashedName, TagTokens};
-use crate::props::{ClassesForm, ElementProps, Prop};
+use crate::props::{is_custom_event_handler, ClassesForm, ElementProps, Prop};
 use crate::stringify::{Stringify, Value};
 use crate::{non_capitalized_ascii, Peek, PeekValue};
 use boolinator::Boolinator;
@@ -272,9 +272,18 @@ impl ToTokens for HtmlElement {
             quote! { ::yew::virtual_dom::listeners::Listeners::None }
         } else {
             let listeners_it = listeners.iter().map(|Prop { label, value, .. }| {
-                let name = &label.name;
-                quote! {
-                    ::yew::html::#name::Wrapper::__macro_new(#value)
+                let mut handler = String::from("on");
+                handler.push_str(&label.name.to_string());
+
+                let ty = &label.name;
+                if is_custom_event_handler(handler) {
+                    quote! {
+                        ::yew::events::listener::Wrapper::<#ty>::__macro_new(#value)
+                    }
+                } else {
+                    quote! {
+                        ::yew::events::listener::Wrapper::<::yew::events::listener::#ty>::__macro_new(#value)
+                    }
                 }
             });
 

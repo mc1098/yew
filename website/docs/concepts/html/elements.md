@@ -152,7 +152,7 @@ impl Component for MyComponent {
         // Create a callback from a component link to handle it in a component
         let click_callback = ctx.link().callback(|_| Msg::Click);
         html! {
-            <button onclick={click_callback}>
+            <button on:click={click_callback}>
                 { "Click me!" }
             </button>
         }
@@ -190,7 +190,7 @@ impl Component for MyComponent {
         // Create a callback from a worker to handle it in another context
         let click_callback = ctx.link().callback(|_| WorkerMsg::Process);
         html! {
-            <button onclick={click_callback}>
+            <button on:click={click_callback}>
                 { "Click me!" }
             </button>
         }
@@ -221,7 +221,7 @@ impl Component for MyComponent {
         });
 
         html! {
-            <button onclick={click_callback}>
+            <button on:click={click_callback}>
                 { "Click me!" }
             </button>
         }

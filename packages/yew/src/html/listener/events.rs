@@ -1,216 +1,166 @@
 // Inspired by: http://package.elm-lang.org/packages/elm-lang/html/2.0.0/Html-Events
 
-macro_rules! impl_action {
-    ($($action:ident($type:ident) -> $ret:path => $convert:path)*) => {$(
-        impl_action!($action($type, false) -> $ret => $convert);
-    )*};
-    ($($action:ident($type:ident, $passive:literal) -> $ret:path => $convert:path)*) => {$(
-        /// An abstract implementation of a listener.
-        #[doc(hidden)]
-        pub mod $action {
-            use crate::callback::Callback;
-            use crate::virtual_dom::{Listener, ListenerKind};
-            use std::rc::Rc;
+static_event_impl! {
+    abort => web_sys::Event,
+    auxclick => web_sys::MouseEvent,
+    blur => web_sys::FocusEvent,
+    cancel => web_sys::Event,
+    canplay => web_sys::Event,
+    canplaythrough => web_sys::Event,
+    change => web_sys::Event,
+    click => web_sys::MouseEvent,
+    close => web_sys::Event,
+    contextmenu => web_sys::MouseEvent,
+    cuechange => web_sys::Event,
+    dblclick => web_sys::MouseEvent,
+    drag => web_sys::DragEvent,
+    dragend => web_sys::DragEvent,
+    dragenter => web_sys::DragEvent,
+    dragexit => web_sys::DragEvent,
+    dragleave => web_sys::DragEvent,
+    dragover => web_sys::DragEvent,
+    dragstart => web_sys::DragEvent,
+    drop => web_sys::DragEvent,
+    durationchange => web_sys::Event,
+    emptied => web_sys::Event,
+    ended => web_sys::Event,
+    error => web_sys::Event,
+    focus => web_sys::FocusEvent,
+    focusin => web_sys::FocusEvent,
+    focusout => web_sys::FocusEvent,
+    /// [`web_sys`] doesn't have a supporting event type for `FormDataEvent` but does have a type
+    /// for `FormData`.
+    ///
+    /// Getting `FormData` from [`Event`](web_sys::Event) can be done using [`Reflect::get`](js_sys::Reflect::get)
+    /// from the [`js_sys`] crate.
+    formdata => web_sys::Event,
+    input => web_sys::InputEvent,
+    invalid => web_sys::Event,
+    keydown => web_sys::KeyboardEvent,
+    keypress => web_sys::KeyboardEvent,
+    keyup => web_sys::KeyboardEvent,
+    load => web_sys::Event,
+    loadeddata => web_sys::Event,
+    loadedmetadata => web_sys::Event,
+    loadstart => web_sys::ProgressEvent,
+    mousedown => web_sys::MouseEvent,
+    mouseenter => web_sys::MouseEvent,
+    mouseleave => web_sys::MouseEvent,
+    mousemove => web_sys::MouseEvent,
+    mouseout => web_sys::MouseEvent,
+    mouseover => web_sys::MouseEvent,
+    mouseup => web_sys::MouseEvent,
+    pause => web_sys::Event,
+    play => web_sys::Event,
+    playing => web_sys::Event,
+    progress => web_sys::ProgressEvent,
+    ratechange => web_sys::Event,
+    reset => web_sys::Event,
+    resize => web_sys::Event,
+    scroll => web_sys::Event,
+    securitypolicyviolation => web_sys::Event,
+    seeked => web_sys::Event,
+    seeking => web_sys::Event,
+    select => web_sys::Event,
+    slotchange => web_sys::Event,
+    stalled => web_sys::Event,
+    /// [`web_sys`] doesn't have a supporting event type for `SubmitEvent`.
+    ///
+    /// Getting `submitter` field from [`Event`](web_sys::Event) can be done using [`Reflect::get`](js_sys::Reflect::get)
+    /// from the [`js_sys`] crate.
+    submit => web_sys::Event,
+    suspend => web_sys::Event,
+    timeupdate => web_sys::Event,
+    toggle => web_sys::Event,
+    volumechange => web_sys::Event,
+    waiting => web_sys::Event,
+    wheel => web_sys::WheelEvent,
+    copy => web_sys::Event,
+    cut => web_sys::Event,
+    paste => web_sys::Event,
+    animationcancel => web_sys::AnimationEvent,
+    animationend => web_sys::AnimationEvent,
+    animationiteration => web_sys::AnimationEvent,
+    animationstart => web_sys::AnimationEvent,
+    gotpointercapture => web_sys::PointerEvent,
+    loadend => web_sys::ProgressEvent,
+    lostpointercapture => web_sys::PointerEvent,
+    pointercancel => web_sys::PointerEvent,
+    pointerdown => web_sys::PointerEvent,
+    pointerenter => web_sys::PointerEvent,
+    pointerleave => web_sys::PointerEvent,
+    pointerlockchange => web_sys::Event,
+    pointerlockerror => web_sys::Event,
+    pointermove => web_sys::PointerEvent,
+    pointerout => web_sys::PointerEvent,
+    pointerover => web_sys::PointerEvent,
+    pointerup => web_sys::PointerEvent,
+    selectionchange => web_sys::Event,
+    selectstart => web_sys::Event,
+    show => web_sys::Event,
+    touchcancel => web_sys::TouchEvent,
+    touchend => web_sys::TouchEvent,
+    touchmove => web_sys::TouchEvent,
+    touchstart => web_sys::TouchEvent,
+    transitioncancel => web_sys::TransitionEvent,
+    transitionend => web_sys::TransitionEvent,
+    transitionrun => web_sys::TransitionEvent,
+    transitionstart => web_sys::TransitionEvent,
+}
 
-            /// A wrapper for a callback which attaches event listeners to elements.
-            #[derive(Clone, Debug)]
-            pub struct Wrapper {
-                callback: Callback<Event>,
-            }
+use wasm_bindgen::JsCast;
 
-            impl Wrapper {
-                /// Create a wrapper for an event-typed callback
-                pub fn new(callback: Callback<Event>) -> Self {
-                    Wrapper { callback }
-                }
+/// A trait to define event data statically.
+pub trait StaticEvent {
+    /// Type of the event
+    ///
+    /// Event type must implement [`JsCast`] so that Yew can cast it to the correct type.
+    type Event: AsRef<web_sys::Event> + JsCast + 'static;
 
-                #[doc(hidden)]
-                #[inline]
-                pub fn __macro_new(
-                    callback: impl crate::html::IntoEventCallback<Event>,
-                ) -> Option<Rc<dyn Listener>> {
-                    let callback = callback.into_event_callback()?;
-                    Some(Rc::new(Self::new(callback)))
-                }
-            }
+    /// Name of the event
+    fn event_name() -> &'static str;
+}
 
-            /// And event type which keeps the returned type.
-            pub type Event = $ret;
+use crate::callback::Callback;
+use crate::html::IntoPropValue;
+use crate::virtual_dom::Listener;
+use std::rc::Rc;
 
-            impl Listener for Wrapper {
-                fn kind(&self) -> ListenerKind {
-                    ListenerKind::$action
-                }
+/// A wrapper for a callback which attaches event listeners to elements.
+#[derive(Clone, Debug)]
+pub struct Wrapper<T: StaticEvent> {
+    callback: Callback<T::Event>,
+}
 
-                fn handle(&self, event: web_sys::Event) {
-                    self.callback.emit($convert(event));
-                }
+impl<T: StaticEvent + 'static> Wrapper<T> {
+    /// Create a wrapper for an event-typed callback
+    pub fn new(callback: Callback<T::Event>) -> Self {
+        Wrapper { callback }
+    }
 
-                fn passive(&self) -> bool {
-                    match &self.callback {
-                        Callback::Callback{passive, ..} => (*passive).unwrap_or($passive),
-                        _ => $passive,
-                    }
-                }
-            }
+    #[doc(hidden)]
+    #[inline]
+    pub fn __macro_new(
+        callback: impl IntoPropValue<Option<Callback<T::Event>>>,
+    ) -> Option<Rc<dyn Listener>> {
+        let callback = callback.into_prop_value()?;
+        Some(Rc::new(Self::new(callback)))
+    }
+}
+
+impl<T: StaticEvent> Listener for Wrapper<T> {
+    fn kind(&self) -> &'static str {
+        T::event_name()
+    }
+
+    fn handle(&self, event: web_sys::Event) {
+        self.callback.emit(event.unchecked_into());
+    }
+
+    fn passive(&self) -> bool {
+        match &self.callback {
+            Callback::Callback { passive, .. } => (*passive).unwrap_or_default(),
+            _ => false,
         }
-    )*};
-}
-
-// Reduces repetition for common cases
-macro_rules! impl_short {
-    ($($action:ident)*) => {
-        impl_action! {
-            $(
-                $action(Event) -> web_sys::Event => std::convert::identity
-            )*
-        }
-    };
-    ($($action:ident($type:ident))*) => {
-        impl_action! {
-            $(
-                $action($type) -> web_sys::$type  => crate::html::listener::cast_event
-            )*
-        }
-    };
-}
-
-// Unspecialized event type
-impl_short! {
-    onabort
-    oncancel
-    oncanplay
-    oncanplaythrough
-    onclose
-    oncuechange
-    ondurationchange
-    onemptied
-    onended
-    onerror
-    onformdata  // web_sys doesn't have a struct for `FormDataEvent`
-    oninvalid
-
-    onload
-    onloadeddata
-    onloadedmetadata
-
-    onpause
-    onplay
-    onplaying
-
-    onratechange
-    onreset
-    onresize
-    onsecuritypolicyviolation
-
-    onseeked
-    onseeking
-
-    onselect
-    onslotchange
-    onstalled
-    onsuspend
-    ontimeupdate
-    ontoggle
-    onvolumechange
-    onwaiting
-
-    onchange
-
-    oncopy
-    oncut
-    onpaste
-
-    onpointerlockchange
-    onpointerlockerror
-    onselectionchange
-    onselectstart
-    onshow
-}
-
-// Specialized event type
-impl_short! {
-    onauxclick(MouseEvent)
-    onclick(MouseEvent)
-
-    oncontextmenu(MouseEvent)
-    ondblclick(MouseEvent)
-
-    ondrag(DragEvent)
-    ondragend(DragEvent)
-    ondragenter(DragEvent)
-    ondragexit(DragEvent)
-    ondragleave(DragEvent)
-    ondragover(DragEvent)
-    ondragstart(DragEvent)
-    ondrop(DragEvent)
-
-    onblur(FocusEvent)
-    onfocus(FocusEvent)
-    onfocusin(FocusEvent)
-    onfocusout(FocusEvent)
-
-    onkeydown(KeyboardEvent)
-    onkeypress(KeyboardEvent)
-    onkeyup(KeyboardEvent)
-
-    onloadstart(ProgressEvent)
-    onprogress(ProgressEvent)
-    onloadend(ProgressEvent)
-
-    onmousedown(MouseEvent)
-    onmouseenter(MouseEvent)
-    onmouseleave(MouseEvent)
-    onmousemove(MouseEvent)
-    onmouseout(MouseEvent)
-    onmouseover(MouseEvent)
-    onmouseup(MouseEvent)
-    onwheel(WheelEvent)
-
-    oninput(InputEvent)
-
-    onsubmit(FocusEvent)
-
-    onanimationcancel(AnimationEvent)
-    onanimationend(AnimationEvent)
-    onanimationiteration(AnimationEvent)
-    onanimationstart(AnimationEvent)
-
-    ongotpointercapture(PointerEvent)
-    onlostpointercapture(PointerEvent)
-    onpointercancel(PointerEvent)
-    onpointerdown(PointerEvent)
-    onpointerenter(PointerEvent)
-    onpointerleave(PointerEvent)
-    onpointermove(PointerEvent)
-    onpointerout(PointerEvent)
-    onpointerover(PointerEvent)
-    onpointerup(PointerEvent)
-
-    ontouchcancel(TouchEvent)
-    ontouchend(TouchEvent)
-
-    ontransitioncancel(TransitionEvent)
-    ontransitionend(TransitionEvent)
-    ontransitionrun(TransitionEvent)
-    ontransitionstart(TransitionEvent)
-}
-
-macro_rules! impl_passive {
-    ($($action:ident($type:ident))*) => {
-        impl_action! {
-            $(
-                $action($type, true) -> web_sys::$type
-                    => crate::html::listener::cast_event
-            )*
-        }
-    };
-}
-
-// Best used with passive listeners for responsiveness
-impl_passive! {
-    onscroll(Event)
-
-    ontouchmove(TouchEvent)
-    ontouchstart(TouchEvent)
+    }
 }

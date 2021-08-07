@@ -56,7 +56,8 @@ HTML-like code using Rust functions can become quite messy, so Yew provides a ma
 for declaring HTML and SVG nodes (as well as attaching attributes and event listeners to them) and a
 convenient way to render child components. The macro is somewhat similar to React's JSX (the
 differences in programming language aside).
-One difference is that Yew provides a shorthand syntax for properties, similar to Svelte, where instead of writing `onclick={onclick}`, you can just write `{onclick}`.
+One difference is that Yew provides a shorthand syntax for properties, similar to Svelte, where 
+instead of writing `on:click={click}`, you can just write `on:{click}`.
 
 ```rust
 use yew::{Component, Context, html, Html, Properties};
@@ -82,9 +83,9 @@ impl Component for MyComponent {
 
     // highlight-start
     fn view(&self, ctx: &Context<Self>) -> Html {
-        let onclick = ctx.link().callback(|_| Msg::Click);
+        let click = ctx.link().callback(|_| Msg::Click);
         html! {
-            <button {onclick}>{ &ctx.props().button_text }</button>
+            <button on:{click}>{ &ctx.props().button_text }</button>
         }
     }
     // highlight-end

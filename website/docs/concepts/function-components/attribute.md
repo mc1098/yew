@@ -59,14 +59,14 @@ use yew::{function_component, html, use_state, Callback};
 fn app() -> Html {
     let counter = use_state(|| 0);
 
-    let onclick = {
+    let click = {
         let counter = counter.clone();
         Callback::from(move |_| counter.set(*counter + 1))
     };
 
     html! {
         <div>
-            <button {onclick}>{ "Increment value" }</button>
+            <button on:{click}>{ "Increment value" }</button>
             <p>
                 <b>{ "Current value: " }</b>
                 { *counter }

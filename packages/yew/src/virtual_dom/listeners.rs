@@ -41,7 +41,7 @@ pub fn set_event_bubbling(bubble: bool) {
 /// which is used to bind Rust-listener to JS-listener (DOM).
 pub trait Listener {
     /// Returns the name of the event
-    fn kind(&self) -> ListenerKind;
+    fn kind(&self) -> &'static str;
 
     /// Handles an event firing
     fn handle(&self, event: web_sys::Event);
@@ -56,131 +56,10 @@ impl std::fmt::Debug for dyn Listener {
         write!(
             f,
             "Listener {{ kind: {}, passive: {:?} }}",
-            self.kind().as_ref(),
+            self.kind(),
             self.passive(),
         )
     }
-}
-
-macro_rules! gen_listener_kinds {
-    ($($kind:ident)*) => {
-        /// Supported kinds of DOM event listeners
-        // Using instead of strings to optimise registry collection performance by simplifying
-        // hashmap hash calculation.
-        #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-        #[allow(non_camel_case_types)]
-        #[allow(missing_docs)]
-        pub enum ListenerKind {
-            $( $kind, )*
-        }
-
-        impl AsRef<str> for ListenerKind {
-            fn as_ref(&self) -> &str {
-                match self {
-                    $( Self::$kind => stringify!($kind), )*
-                }
-            }
-        }
-    };
-}
-
-gen_listener_kinds! {
-    onabort
-    onauxclick
-    onblur
-    oncancel
-    oncanplay
-    oncanplaythrough
-    onchange
-    onclick
-    onclose
-    oncontextmenu
-    oncuechange
-    ondblclick
-    ondrag
-    ondragend
-    ondragenter
-    ondragexit
-    ondragleave
-    ondragover
-    ondragstart
-    ondrop
-    ondurationchange
-    onemptied
-    onended
-    onerror
-    onfocus
-    onfocusin
-    onfocusout
-    onformdata
-    oninput
-    oninvalid
-    onkeydown
-    onkeypress
-    onkeyup
-    onload
-    onloadeddata
-    onloadedmetadata
-    onloadstart
-    onmousedown
-    onmouseenter
-    onmouseleave
-    onmousemove
-    onmouseout
-    onmouseover
-    onmouseup
-    onpause
-    onplay
-    onplaying
-    onprogress
-    onratechange
-    onreset
-    onresize
-    onscroll
-    onsecuritypolicyviolation
-    onseeked
-    onseeking
-    onselect
-    onslotchange
-    onstalled
-    onsubmit
-    onsuspend
-    ontimeupdate
-    ontoggle
-    onvolumechange
-    onwaiting
-    onwheel
-    oncopy
-    oncut
-    onpaste
-    onanimationcancel
-    onanimationend
-    onanimationiteration
-    onanimationstart
-    ongotpointercapture
-    onloadend
-    onlostpointercapture
-    onpointercancel
-    onpointerdown
-    onpointerenter
-    onpointerleave
-    onpointerlockchange
-    onpointerlockerror
-    onpointermove
-    onpointerout
-    onpointerover
-    onpointerup
-    onselectionchange
-    onselectstart
-    onshow
-    ontouchcancel
-    ontouchend
-    ontouchmove
-    ontouchstart
-    ontransitioncancel
-    ontransitionend
-    ontransitionrun
-    ontransitionstart
 }
 
 /// A list of event listeners
@@ -315,7 +194,7 @@ impl Default for Listeners {
 
 #[derive(Clone, Copy, Hash, Eq, PartialEq, Debug)]
 struct EventDescriptor {
-    kind: ListenerKind,
+    kind: &'static str,
     passive: bool,
 }
 
@@ -340,7 +219,7 @@ struct GlobalHandlers {
     /// The registry is never dropped in production.
     #[cfg(test)]
     #[allow(clippy::type_complexity)]
-    registered: Vec<(ListenerKind, Closure<dyn Fn(web_sys::Event)>)>,
+    registered: Vec<(&'static str, Closure<dyn Fn(web_sys::Event)>)>,
 }
 
 impl GlobalHandlers {
@@ -353,7 +232,7 @@ impl GlobalHandlers {
                 );
                 AsRef::<web_sys::EventTarget>::as_ref(body)
                     .add_event_listener_with_callback_and_add_event_listener_options(
-                        &desc.kind.as_ref()[2..],
+                        desc.kind,
                         cl.as_ref().unchecked_ref(),
                         &{
                             let mut opts = web_sys::AddEventListenerOptions::new();
@@ -387,10 +266,7 @@ impl Drop for GlobalHandlers {
         BODY.with(|body| {
             for (kind, cl) in std::mem::take(&mut self.registered) {
                 AsRef::<web_sys::EventTarget>::as_ref(body)
-                    .remove_event_listener_with_callback(
-                        &kind.as_ref()[2..],
-                        cl.as_ref().unchecked_ref(),
-                    )
+                    .remove_event_listener_with_callback(kind, cl.as_ref().unchecked_ref())
                     .unwrap();
             }
         });
@@ -560,7 +436,7 @@ mod tests {
                 }
             } else {
                 html! {
-                    <a onclick={ctx.link().callback_with_passive(
+                    <a on:click={ctx.link().callback_with_passive(
                         Self::passive(),
                         |_| Message::Action,
                     )}>
@@ -769,8 +645,8 @@ mod tests {
                 } else {
                     let cb = ctx.link().callback(|_| Message::Action);
                     html! {
-                        <div onclick={cb.clone()}>
-                            <a onclick={cb}>
+                        <div on:click={cb.clone()}>
+                            <a on:click={cb}>
                                 {state.action}
                             </a>
                         </div>
@@ -817,11 +693,11 @@ mod tests {
                         <div>
                             <input
                                 type="text"
-                                onchange={ctx.link().callback(|e: web_sys::Event| {
+                                on:change={ctx.link().callback(|e: web_sys::Event| {
                                     let el: web_sys::HtmlInputElement = e.target_unchecked_into();
                                     Message::SetText(el.value())
                                 })}
-                                oninput={ctx.link().callback(|e: web_sys::InputEvent| {
+                                on:input={ctx.link().callback(|e: web_sys::InputEvent| {
                                     let el: web_sys::HtmlInputElement = e.target_unchecked_into();
                                     Message::SetText(el.value())
                                 })}

@@ -8,8 +8,9 @@ Yew integrates with the [`web-sys`](https://rustwasm.github.io/wasm-bindgen/api/
 uses the events from that crate. The [table below](#event-types) lists all of the `web-sys`
 events that are accepted in the `html!` macro.
 
-You can still add a [`Callback`](../components/callbacks.md) for an event that is not listed in the table
-below, see [Manual event listener](#manual-event-listener).
+You can still add a [`Callback`](../components/callbacks.md) for an event that is not listed in 
+the table below; either manually, see [Manual event listener](#manual-event-listener), or using the
+techniques explained in the [Custom events](#custom-events) section.
 
 ## Event Types
 
@@ -491,10 +492,137 @@ impl Component for Comp {
 Which approach you take depends on your component and your preferences, there is no _blessed_ way
 per se.
 
+## Custom events
+
+Yew supports custom events by allowing you to implement the `StaticEvent` trait for a given
+type. This allows Yew to know what event is expected and the type of the event in Rust for the
+`html!` macro.
+
+```rust
+use yew::{Callback, StaticEvent, html, web_sys::Event};
+
+struct MyCustomEvent(Event);
+
+impl StaticEvent for MyCustomEvent {
+    type Event = Event;
+
+    fn event_name() -> &'static str {
+        "custom"
+    }
+}
+
+// This new handler can be used in the html! macro like this:
+html! {
+    <div
+        on:MyCustomEvent={Callback::from(|e: Event| ())}
+    />
+};
+```
+Implementing the `StaticEvent` trait by hand adds boiler plate and in order to use the
+`MyCustomEvent` type defined in the Callback the `StaticEvent::Event` would have to be set to
+`Self` which requires implementing [`JsCast`](https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/trait.JsCast.html)
+and `AsRef<web_sys::Event>` for `MyCustomEvent` which is not trivial.
+
+:::tip
+Imported types using `wasm_bindgen` extern blocks implement `JsCast`, use
+[extends](https://rustwasm.github.io/wasm-bindgen/reference/attributes/on-js-imports/extends.html)
+on event types
+to automatically implement `AsRef` for `web_sys::Event` to!
+:::
+
+### Custom event macro
+
+:::caution
+The `custom_event` macro requires `wasm_bindgen` to implement `JsCast` and `AsRef<JsValue>` on your
+newtype.
+
+The `custom_event` macro only accepts tuple structs with a single type and that type **MUST** implement
+`JsCast`.
+:::
+
+This is where the `custom_event` attribute macro comes in to implement all the traits required on
+your Newtype (a tuple struct with a single field) and adds a type alias so that you can use the
+property shorthand with custom events too!
+
+The `custom_event` macro can only be used on a Newtype, where the type within the Newtype implements
+`JsCast`. 
+
+This macro accepts an attribute which binds a Rust name (Ident) to the
+[type of the event](https://dom.spec.whatwg.org/#interface-event). If the type of the event can be
+represented as a Rust ident then the shorthand syntax can be used.
+
+```rust ,ignore title="Shorthand attribute"
+// bind ident to event type `custard`
+#[custom_event(custard)]
+```
+
+```rust ,ignore title="Normal attribute"
+// event type "   represent ''' this in Rust" name cannot 
+// be represented as a Rust name so bind it to one that can
+#[custom_event(bizarre = "   represent ''' this in Rust")]
+```
+
+The idents used in the attribute can then be used when adding an event listener to an element:
+
+```rust ,ignore title="Using attribute idents"
+html! {
+    <div
+        on:custard={Callback::from(|_| ())}
+        on:bizarre={Callback::from(|_| ())}
+    />
+}
+```
+
+:::tip
+Event types are case sensitive and can contain white spaces.
+
+If your application is not catching custom events then check that the event type matches the
+value in the `custom_event` attribute!
+:::
+
+Putting it all together:
+
+```rust
+use yew::{Callback, macros::custom_event, html, web_sys::Event};
+
+#[custom_event(custom)]
+pub struct MyCustomEvent(Event);
+
+// The struct can have functions and will be available to the event
+impl MyCustomEvent {
+    // make sure the functions are public so this custom event can used
+    // by other modules or crates!
+    pub fn do_something(&self) {
+        // do something amazing here :)
+    }
+}
+
+// The shorthand works here when the variable name matches the type name
+let custom = Callback::from(|e: MyCustomEvent| ());
+html! {
+    <div
+        on:{custom}
+        // you can still use the struct name if you prefer!
+        on:MyCustomEvent={Callback::from(|e: MyCustomEvent| e.do_something())}
+    />
+};
+```
+#### Traits implemented
+
+The `custom_event` attribute macro implements the following traits:
+- [`AsRef<T>`](https://doc.rust-lang.org/std/convert/trait.AsRef.html) where `T` is:
+    - [`JsValue`](https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/struct.JsValue.html)
+    - [`Event`](https://rustwasm.github.io/wasm-bindgen/api/web_sys/struct.Event.html)
+- [`Into<T>`](https://doc.rust-lang.org/std/convert/trait.Into.html) where `T` is [`JsValue`](https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/struct.JsValue.html).
+- [`JsCast`](https://rustwasm.github.io/wasm-bindgen/api/wasm_bindgen/trait.JsCast.html)
+- `StaticEvent` where `Event` is `Self`.
+
 ## Manual event listener
 
 You may want to listen to an event that is not supported by Yew's `html` macro, see the
 [supported events listed here](#event-types).
+
+_See the [Custom events](#custom-events) section first to see if this will cover your use case_.
 
 In order to add an event listener to one of elements manually we need the help of
 [`NodeRef`](../components/refs) so that in the `rendered` method we can add a listener using the

@@ -27,7 +27,7 @@ The event listener name is the expected name when adding an event `Callback` in 
 use yew::{html, Callback};
 
 html! {
-    <button onclick={Callback::from(|_| ())}>
+    <button on:click={Callback::from(|_| ())}>
     //      ^^^^^^^ event listener name
         { "Click me!" }
     </button>
@@ -241,14 +241,14 @@ impl Component for Comp {
             <>
                 <label for="cautious-input">
                     { "My cautious input:" }
-                    <input onchange={on_cautious_change}
+                    <input on:change={on_cautious_change}
                         id="cautious-input"
                         type="text"
                     />
                 </label>
                 <label for="dangerous-input">
                     { "My dangerous input:" }
-                    <input onchange={on_dangerous_change}
+                    <input on:change={on_dangerous_change}
                         id="dangerous-input"
                         type="text"
                     />
@@ -341,14 +341,14 @@ impl Component for Comp {
             <>
                 <label for="cautious-input">
                     { "My cautious input:" }
-                    <input onchange={on_cautious_change}
+                    <input on:change={on_cautious_change}
                         id="cautious-input"
                         type="text"
                     />
                 </label>
                 <label for="dangerous-input">
                     { "My dangerous input:" }
-                    <input onchange={on_dangerous_change}
+                    <input on:change={on_dangerous_change}
                         id="dangerous-input"
                         type="text"
                     />
@@ -399,7 +399,7 @@ impl Component for Comp {
 
         let my_input_ref = self.my_input.clone();
 
-        let onchange = link.batch_callback(move |_| {
+        let change = link.batch_callback(move |_| {
             //highlight-next-line
             let input = my_input_ref.cast::<HtmlInputElement>();
 
@@ -412,7 +412,7 @@ impl Component for Comp {
                     { "My input:" }
                     //highlight-next-line
                     <input ref={self.my_input.clone()}
-                        {onchange}
+                        on:{change}
                         id="my-input"
                         type="text"
                     />
@@ -473,13 +473,13 @@ impl Component for Comp {
     fn view(&self, ctx: &Context<Self>) -> Html {
         let link = ctx.link();
         //highlight-next-line
-        let onchange = link.callback(|_| Msg::InputChanged);
+        let change = link.callback(|_| Msg::InputChanged);
 
         html! {
             <label for="my-input">
                 { "My input:" }
                 <input ref={self.my_input.clone()}
-                    {onchange}
+                    on:{change}
                     id="my-input"
                     type="text"
                 />

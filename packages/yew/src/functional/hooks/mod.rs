@@ -60,19 +60,19 @@ pub fn use_hook<InternalHook: 'static, Output, Tear: FnOnce(&mut InternalHook) +
         }
     });
 
-    // Execute the actual hook closure we were given. Let it mutate the hook state and let
-    // it create a callback that takes the mutable hook state.
-
     // In order to convert from a `dyn Any` back to `InternalHook` we can move the Rc to a ptr type
     // and use std::ptr::cast then reconstruct the Rc with the correct type.
     let hook = updater.hook.clone();
     let hook = Rc::into_raw(hook).cast();
     // SAFETY:
     // The ptr is originally from Rc which satisfies one of the requirements of `from_raw`.
-    // The second requirement is that `U` has the same size and memory alignment as `T`, which we know
-    // to be true as the initial state was created in this function so the hook ptr can be cast and
+    // The second requirement is that `U` has the same size and memory alignment as `T`.
+    // The dyn ptr is double the size but when casting we take just the data ptr which we know
+    // to be the initial state that was created in this function so the ptr can be cast and
     // converted back into the initial type Rc<RefCell<InternalHook>>.
     let hook = unsafe { Rc::from_raw(hook) };
 
-    runner(hook, updater.clone())
+    // Execute the actual hook closure we were given. Let it mutate the hook state and let
+    // it create a callback that takes the mutable hook state.
+    runner(hook, updater)
 }

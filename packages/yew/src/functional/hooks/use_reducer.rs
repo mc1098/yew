@@ -1,4 +1,5 @@
 use crate::functional::use_hook;
+use std::cell::RefCell;
 use std::fmt;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -123,17 +124,19 @@ where
     let init = Box::new(init);
     let reducer = Rc::new(reducer);
     use_hook(
-        move || UseReducer {
-            current_state: Rc::new(init(initial_state)),
+        move || {
+            RefCell::new(UseReducer {
+                current_state: Rc::new(init(initial_state)),
+            })
         },
         |s, updater| {
             let setter: Rc<dyn Fn(Action)> = Rc::new(move |action: Action| {
                 let reducer = reducer.clone();
                 // We call the callback, consumer the updater
                 // Required to put the type annotations on Self so the method knows how to downcast
-                updater.callback(move |state: &mut UseReducer<State>| {
-                    let new_state = reducer(state.current_state.clone(), action);
-                    state.current_state = Rc::new(new_state);
+                updater.callback(move |state: &RefCell<UseReducer<State>>| {
+                    let new_state = reducer(state.borrow().current_state.clone(), action);
+                    state.borrow_mut().current_state = Rc::new(new_state);
                     true
                 });
             });

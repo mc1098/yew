@@ -11,8 +11,6 @@ pub use use_ref::*;
 pub use use_state::*;
 
 use crate::functional::{HookUpdater, CURRENT_HOOK};
-use std::cell::RefCell;
-use std::ops::DerefMut;
 use std::rc::Rc;
 
 /// Low level building block of creating hooks.
@@ -28,9 +26,9 @@ use std::rc::Rc;
 /// See the pre-defined hooks for examples of how to use this function.
 ///
 /// [Yew Docs]: https://yew.rs/next/concepts/function-components/custom-hooks
-pub fn use_hook<InternalHook: 'static, Output, Tear: FnOnce(&mut InternalHook) + 'static>(
+pub fn use_hook<InternalHook: 'static, Output, Tear: FnOnce(&InternalHook) + 'static>(
     initializer: impl FnOnce() -> InternalHook,
-    runner: impl FnOnce(Rc<RefCell<InternalHook>>, HookUpdater) -> Output,
+    runner: impl FnOnce(Rc<InternalHook>, HookUpdater) -> Output,
     destructor: Tear,
 ) -> Output {
     // Extract current hook
@@ -41,10 +39,10 @@ pub fn use_hook<InternalHook: 'static, Output, Tear: FnOnce(&mut InternalHook) +
 
         // Initialize hook if this is the first call
         if hook_pos >= hook_state.hooks.len() {
-            let initial_state = Rc::new(RefCell::new(initializer()));
+            let initial_state = Rc::new(initializer());
             hook_state.hooks.push(initial_state.clone());
             hook_state.destroy_listeners.push(Box::new(move || {
-                destructor(initial_state.borrow_mut().deref_mut());
+                destructor(&initial_state);
             }));
         }
 
@@ -64,7 +62,7 @@ pub fn use_hook<InternalHook: 'static, Output, Tear: FnOnce(&mut InternalHook) +
     // and use std::ptr::cast then reconstruct the Rc with the correct type.
     let hook = updater.hook.clone();
     assert!(
-        hook.borrow().is::<InternalHook>(),
+        hook.is::<InternalHook>(),
         "Incompatible hook type. Hooks must always be called in the same order"
     );
     // SAFETY:

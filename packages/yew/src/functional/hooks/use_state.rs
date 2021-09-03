@@ -1,4 +1,5 @@
 use crate::functional::use_hook;
+use std::cell::RefCell;
 use std::fmt;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -37,14 +38,16 @@ struct UseState<T2> {
 pub fn use_state<T: 'static, F: FnOnce() -> T + 'static>(initial_state_fn: F) -> UseStateHandle<T> {
     use_hook(
         // Initializer
-        move || UseState {
-            current: Rc::new(initial_state_fn()),
+        move || {
+            RefCell::new(UseState {
+                current: Rc::new(initial_state_fn()),
+            })
         },
         // Runner
         move |hook, updater| {
             let setter: Rc<(dyn Fn(T))> = Rc::new(move |new_val: T| {
-                updater.callback(move |st: &mut UseState<T>| {
-                    st.current = Rc::new(new_val);
+                updater.callback(move |st: &RefCell<UseState<T>>| {
+                    st.borrow_mut().current = Rc::new(new_val);
                     true
                 })
             });

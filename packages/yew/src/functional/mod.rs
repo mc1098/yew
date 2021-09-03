@@ -61,7 +61,7 @@ struct HookState {
     counter: usize,
     scope: AnyScope,
     process_message: ProcessMessage,
-    hooks: Vec<Rc<RefCell<dyn std::any::Any>>>,
+    hooks: Vec<Rc<dyn std::any::Any>>,
     destroy_listeners: Vec<Box<dyn FnOnce()>>,
 }
 
@@ -189,14 +189,14 @@ impl MsgQueue {
 #[derive(Clone)]
 #[allow(missing_debug_implementations)]
 pub struct HookUpdater {
-    hook: Rc<RefCell<dyn std::any::Any>>,
+    hook: Rc<dyn std::any::Any>,
     process_message: ProcessMessage,
 }
 impl HookUpdater {
     /// Callback which runs the hook.
     pub fn callback<T: 'static, F>(&self, cb: F)
     where
-        F: FnOnce(&mut T) -> bool + 'static,
+        F: FnOnce(&T) -> bool + 'static,
     {
         let internal_hook_state = self.hook.clone();
         let process_message = self.process_message.clone();
@@ -206,9 +206,9 @@ impl HookUpdater {
         let post_render = false;
         process_message(
             Box::new(move || {
-                let mut r = internal_hook_state.borrow_mut();
-                let hook: &mut T = r
-                    .downcast_mut()
+                let r = internal_hook_state;
+                let hook: &T = r
+                    .downcast_ref()
                     .expect("internal error: hook downcasted to wrong type");
                 cb(hook)
             }),
@@ -219,7 +219,7 @@ impl HookUpdater {
     /// Callback called after the render
     pub fn post_render<T: 'static, F>(&self, cb: F)
     where
-        F: FnOnce(&mut T) -> bool + 'static,
+        F: FnOnce(&T) -> bool + 'static,
     {
         let internal_hook_state = self.hook.clone();
         let process_message = self.process_message.clone();
@@ -229,9 +229,9 @@ impl HookUpdater {
         let post_render = true;
         process_message(
             Box::new(move || {
-                let mut hook = internal_hook_state.borrow_mut();
-                let hook: &mut T = hook
-                    .downcast_mut()
+                let hook = internal_hook_state;
+                let hook: &T = hook
+                    .downcast_ref()
                     .expect("internal error: hook downcasted to wrong type");
                 cb(hook)
             }),

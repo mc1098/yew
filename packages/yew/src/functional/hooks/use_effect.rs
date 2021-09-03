@@ -1,5 +1,5 @@
 use crate::functional::use_hook;
-use std::{borrow::Borrow, rc::Rc};
+use std::{borrow::Borrow, cell::RefCell, rc::Rc};
 
 struct UseEffect<Destructor> {
     destructor: Option<Box<Destructor>>,
@@ -43,21 +43,24 @@ where
     use_hook(
         move || {
             let effect: UseEffect<Destructor> = UseEffect { destructor: None };
-            effect
+            RefCell::new(effect)
         },
         |_, updater| {
             // Run on every render
-            updater.post_render(move |state: &mut UseEffect<Destructor>| {
-                if let Some(de) = state.destructor.take() {
+            updater.post_render(move |state: &RefCell<UseEffect<Destructor>>| {
+                if let Some(de) = state.borrow_mut().destructor.take() {
                     de();
                 }
                 let new_destructor = callback();
-                state.destructor.replace(Box::new(new_destructor));
+                state
+                    .borrow_mut()
+                    .destructor
+                    .replace(Box::new(new_destructor));
                 false
             });
         },
         |hook| {
-            if let Some(destructor) = hook.destructor.take() {
+            if let Some(destructor) = hook.borrow_mut().destructor.take() {
                 destructor()
             }
         },
@@ -86,30 +89,34 @@ where
     use_hook(
         move || {
             let destructor: Option<Box<Destructor>> = None;
-            UseEffectDeps {
+            RefCell::new(UseEffectDeps {
                 destructor,
                 deps: deps_c,
-            }
+            })
         },
         move |_, updater| {
-            updater.post_render(move |state: &mut UseEffectDeps<Destructor, Dependents>| {
-                if state.deps != deps {
-                    if let Some(de) = state.destructor.take() {
-                        de();
+            updater.post_render(
+                move |state: &RefCell<UseEffectDeps<Destructor, Dependents>>| {
+                    if state.borrow().deps != deps {
+                        if let Some(de) = state.borrow_mut().destructor.take() {
+                            de();
+                        }
+                        let new_destructor = callback(deps.borrow());
+                        state.borrow_mut().deps = deps;
+                        state
+                            .borrow_mut()
+                            .destructor
+                            .replace(Box::new(new_destructor));
+                    } else if state.borrow().destructor.is_none() {
+                        let new_destructor = Box::new(callback(&state.borrow().deps));
+                        state.borrow_mut().destructor.replace(new_destructor);
                     }
-                    let new_destructor = callback(deps.borrow());
-                    state.deps = deps;
-                    state.destructor.replace(Box::new(new_destructor));
-                } else if state.destructor.is_none() {
-                    state
-                        .destructor
-                        .replace(Box::new(callback(state.deps.borrow())));
-                }
-                false
-            });
+                    false
+                },
+            );
         },
         |hook| {
-            if let Some(destructor) = hook.destructor.take() {
+            if let Some(destructor) = hook.borrow_mut().destructor.take() {
                 destructor()
             }
         },

@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use crate::context::ContextHandle;
 use crate::functional::{get_current_scope, use_hook};
 
@@ -38,17 +40,19 @@ pub fn use_context<T: Clone + PartialEq + 'static>() -> Option<T> {
         .expect("No current Scope. `use_context` can only be called inside function components");
 
     use_hook(
-        move || UseContextState {
-            initialized: false,
-            context: None,
+        move || {
+            RefCell::new(UseContextState {
+                initialized: false,
+                context: None,
+            })
         },
         |state, updater| {
             let mut state = state.borrow_mut();
             if !state.initialized {
                 state.initialized = true;
                 let callback = move |ctx: T| {
-                    updater.callback(|state: &mut UseContextState<T>| {
-                        if let Some(context) = &mut state.context {
+                    updater.callback(|state: &RefCell<UseContextState<T>>| {
+                        if let Some(context) = &mut state.borrow_mut().context {
                             context.0 = ctx;
                         }
                         true
@@ -60,7 +64,7 @@ pub fn use_context<T: Clone + PartialEq + 'static>() -> Option<T> {
             Some(state.context.as_ref()?.0.clone())
         },
         |state| {
-            state.context = None;
+            state.borrow_mut().context = None;
         },
     )
 }

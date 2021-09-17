@@ -1,4 +1,4 @@
-use crate::functional::use_hook;
+use crate::{functional::use_hook, NodeRef};
 use std::{cell::RefCell, rc::Rc};
 
 /// This hook is used for obtaining a mutable reference to a stateful value.
@@ -52,4 +52,64 @@ pub fn use_ref<T: 'static>(initial_value: impl FnOnce() -> T) -> Rc<RefCell<T>> 
         |state, _| state.clone(),
         |_| {},
     )
+}
+
+/// This hook is used for obtaining a [`NodeRef`].
+/// It persists across renders.
+///
+/// It is important to note that you do not get notified of state changes.
+///
+/// # Example
+/// ```rust
+/// # use wasm_bindgen::{prelude::Closure, JsCast};
+/// # use yew::{
+/// #     function_component, html, use_effect_with_deps, use_node_ref,
+/// #     web_sys::{Event, HtmlElement},
+/// # };
+///
+/// #[function_component(UseNodeRef)]
+/// pub fn node_ref_hook() -> Html {
+///     let div_ref = use_node_ref();
+///
+///     {
+///         let div_ref = div_ref.clone();
+///
+///         use_effect_with_deps(
+///             |div_ref| {
+///                 let div = div_ref
+///                     .cast::<HtmlElement>()
+///                     .expect("to be attached to div");
+///
+///                 let listener = Closure::<dyn Fn(Event)>::wrap(Box::new(|_| {
+///                     yew::web_sys::console::log_1(&"Clicked!".into());
+///                 }));
+///
+///                 div.add_event_listener_with_callback(
+///                     "click",
+///                     listener.as_ref().unchecked_ref(),
+///                 )
+///                 .unwrap();
+///
+///                 move || {
+///                     div.remove_event_listener_with_callback(
+///                         "click",
+///                         listener.as_ref().unchecked_ref(),
+///                     )
+///                     .unwrap();
+///                 }
+///             },
+///             div_ref,
+///         );
+///     }
+///
+///     html! {
+///         <div ref={div_ref}>
+///             { "Hello, World!" }
+///         </div>
+///     }
+/// }
+///
+/// ```
+pub fn use_node_ref() -> NodeRef {
+    use_hook(NodeRef::default, |state, _| state.clone(), |_| {})
 }

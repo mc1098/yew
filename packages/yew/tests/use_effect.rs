@@ -7,7 +7,8 @@ use wasm_bindgen_test::*;
 use yew::functional::{
     use_effect_with_deps, use_ref, use_state, FunctionComponent, FunctionProvider,
 };
-use yew::{html, Html, Properties};
+use yew::utils::document;
+use yew::{html, use_node_ref, Html, Properties};
 
 wasm_bindgen_test::wasm_bindgen_test_configure!(run_in_browser);
 
@@ -163,11 +164,14 @@ fn use_effect_refires_on_dependency_change() {
             let number_ref = use_ref(|| 0);
             let number_ref_c = number_ref.clone();
             let number_ref2 = use_ref(|| 0);
+            let div_ref = use_node_ref();
+            let result_ref = div_ref.clone();
             let number_ref2_c = number_ref2.clone();
             let arg = *number_ref.borrow_mut().deref_mut();
             let counter = use_state(|| 0);
             use_effect_with_deps(
                 move |dep| {
+                    assert_eq!(document().get_element_by_id("result"), result_ref.cast());
                     let mut ref_mut = number_ref_c.borrow_mut();
                     let inner_ref_mut = ref_mut.deref_mut();
                     if *inner_ref_mut < 1 {
@@ -187,7 +191,7 @@ fn use_effect_refires_on_dependency_change() {
             return html! {
                 <div>
                     {"The test result is"}
-                    <div id="result">{*number_ref.borrow_mut().deref_mut()}{*number_ref2.borrow_mut().deref_mut()}</div>
+                    <div ref={div_ref} id="result">{*number_ref.borrow_mut().deref_mut()}{*number_ref2.borrow_mut().deref_mut()}</div>
                     {"\n"}
                 </div>
             };

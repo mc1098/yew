@@ -38,6 +38,72 @@ fn state() -> Html {
 }
 ```
 
+## `use_node_ref`
+`use_node_ref` is used for obtaining a persistent `NodeRef` value.
+
+It is important to note that changes to `NodeRef` doesn't cause re-renders, consider using `NodeRef`
+with `use_effect_with_deps` in order to perform an action when `NodeRef` changes.
+
+### Example 
+
+```rust
+use wasm_bindgen::{prelude::Closure, JsCast};
+use yew::{
+    function_component, html, use_effect_with_deps, use_node_ref,
+    web_sys::{Event, HtmlElement},
+};
+
+#[function_component(UseNodeRef)]
+pub fn node_ref_hook() -> Html {
+    let div_ref = use_node_ref();
+
+    {
+        let div_ref = div_ref.clone();
+
+        // Add a click event listener manually using web_sys 
+        // and remove it when the `NodeRef` changes.
+        use_effect_with_deps(
+            |div_ref| {
+                let div = div_ref
+                    .cast::<HtmlElement>()
+                    .expect("to be attached to div");
+
+                let listener = Closure::<dyn Fn(Event)>::wrap(Box::new(|_| {
+                    yew::web_sys::console::log_1(&"Clicked!".into());
+                }));
+
+                div.add_event_listener_with_callback(
+                    "click",
+                    listener.as_ref().unchecked_ref(),
+                )
+                .unwrap();
+
+                // This move keeps the `listener` in scope so we don't have to 
+                // worry about calling `forget` on it or saving it 
+                // in a `use_ref` or something similar!
+                // Move the `div: HtmlElement`and NOT the `NodeRef`
+                // so that you have a copy of what the element was before 
+                // `NodeRef` changed.
+                move || {
+                    div.remove_event_listener_with_callback(
+                        "click",
+                        listener.as_ref().unchecked_ref(),
+                    )
+                    .unwrap();
+                }
+            },
+            div_ref,
+        );
+    }
+
+    html! {
+        <div ref={div_ref}>
+            { "Hello, World!" }
+        </div>
+    }
+}
+```
+
 ## `use_ref`
 `use_ref` is used for obtaining a mutable reference to a value.
 Its state persists across renders.
@@ -244,6 +310,8 @@ use_effect_with_deps(
 ```
 
 **Note**: `dependents` must implement `PartialEq`.
+
+See [`use_node_ref`](#use_node_ref) for an example using both hooks.
 
 ## `use_context`
 
